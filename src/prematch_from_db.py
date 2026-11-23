@@ -30,13 +30,13 @@ def _to_utc(dt_val) -> datetime | None:
 
 def get_due_slots_from_db(
     now_utc: datetime | None = None,
-    window_minutes: int = 15,
+    window_minutes: int = 59,
     db_path: Path = DB_PATH,
     sport_key_filter: str | None = None,
 ) -> list[dict]:
     """
-    Взима всички мачове от DuckDB (независимо от турнира), вади 1 час от commence_time_utc
-    и връща само слотовете, които са в прозореца '1 час преди началото на мача'.
+    Взима всички мачове от DuckDB (независимо от турнира) и връща слотовете,
+    които попадат в интервала от 1 час преди началото до 1 минута преди началото.
     """
     current_utc = _to_utc(now_utc) or datetime.now(timezone.utc)
     if not db_path.exists():
@@ -81,12 +81,13 @@ def get_due_slots_from_db(
         if not kickoff_utc:
             continue
 
-        # Точно 1 час преди началото на мача
-        trigger_utc = kickoff_utc - timedelta(hours=1)
+        window_start_utc = kickoff_utc - timedelta(hours=1)
+        window_end_utc = kickoff_utc - timedelta(minutes=1)
         if kickoff_utc not in grouped_by_kickoff:
             grouped_by_kickoff[kickoff_utc] = {
                 "kickoff_utc": kickoff_utc,
-                "trigger_utc": trigger_utc,
+                "window_start_utc": window_start_utc,
+                "window_end_utc": window_end_utc,
                 "sports": set(),
                 "matches": set(),
             }
@@ -96,13 +97,17 @@ def get_due_slots_from_db(
     due: list[dict] = []
     for kickoff_utc in sorted(grouped_by_kickoff.keys()):
         item = grouped_by_kickoff[kickoff_utc]
-        elapsed_sec = (current_utc - item["trigger_utc"]).total_seconds()
-        # Изпълнява се само след като настъпи trigger_utc (-1ч) и в рамките на window_minutes
-        if 0 <= elapsed_sec <= window_minutes * 60:
+        # По желание window_minutes може допълнително да ограничи максималната дължина на прозореца (до 59 мин)
+        effective_end_utc = min(
+            item["window_end_utc"],
+            item["window_start_utc"] + timedelta(minutes=max(1, min(window_minutes, 59))),
+        )
+        if item["window_start_utc"] <= current_utc <= effective_end_utc:
             due.append(
                 {
                     "kickoff_utc": item["kickoff_utc"].isoformat(),
-                    "trigger_utc": item["trigger_utc"].isoformat(),
+                    "trigger_utc": item["window_start_utc"].isoformat(),
+                    "window_end_utc": effective_end_utc.isoformat(),
                     "sports": sorted(item["sports"]),
                     "match_count": len(item["matches"]),
                 }
@@ -141,15 +146,16 @@ def _rebuild_db_and_history(raw_date: str) -> None:
 
 def sync_1h_before_matches(
     now_utc: datetime | None = None,
-    window_minutes: int = 15,
+    window_minutes: int = 59,
     regions: str = "eu",
     markets: str = "h2h",
     sport_key: str | None = None,
     dry_run: bool = False,
 ) -> dict:
     """
-    Проверява всички мачове в базата и само ако текущият момент е в прозореца
-    '1 час преди мача', вика fetch_and_save_odds(), записва историята и обновява базата.
+    Проверява всички мачове в базата и ако текущият момент е между 1 час и 1 минута
+    преди началото на мача и данните още не са взети за слота, вика fetch_and_save_odds(),
+    записва историята и обновява базата.
     """
     current_utc = _to_utc(now_utc) or datetime.now(timezone.utc)
     run_date = current_utc.strftime("%Y-%m-%d")
@@ -190,8 +196,10 @@ def sync_1h_before_matches(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Изпълнение само 1 час преди мачовете от базата.")
-    parser.add_argument("--window-minutes", type=int, default=15)
+    parser = argparse.ArgumentParser(
+        description="Изпълнение от 1 час до 1 минута преди мачовете от базата (веднъж на слот)."
+    )
+    parser.add_argument("--window-minutes", type=int, default=59)
     parser.add_argument("--sport-key", default=None, help="Незадължителен филтър само за един турнир")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
