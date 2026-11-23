@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -25,6 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Заключване на ниво процес, за да не се изпълняват едновременни sync заявки
+_sync_lock = asyncio.Lock()
+
 
 def _get_con() -> duckdb.DuckDBPyConnection:
     if not DB_PATH.exists():
@@ -42,41 +46,10 @@ def _rows_to_dicts(
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-@app.get("/api/health")
-def health() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "db_exists": DB_PATH.exists(),
-        "checked_at_utc": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/api/sports")
-def list_sports() -> dict[str, Any]:
-    con = _get_con()
-    try:
-        tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
-        if "mart_match_consensus_odds" in tables:
-            rows = con.execute(
-                "SELECT DISTINCT sport_key FROM mart_match_consensus_odds WHERE sport_key IS NOT NULL ORDER BY sport_key"
-            ).fetchall()
-        elif "stg_odds" in tables:
-            rows = con.execute(
-                "SELECT DISTINCT sport_key FROM stg_odds WHERE sport_key IS NOT NULL ORDER BY sport_key"
-            ).fetchall()
-        else:
-            rows = []
-        sports = [r[0] for r in rows]
-        return {"count": len(sports), "sports": sports}
-    finally:
-        con.close()
-
-
-@app.get("/api/matches")
-def list_matches(
-    sport_key: str | None = Query(default=None, description="Филтър по произволен турнир, напр. soccer_epl"),
-    event_date: str | None = Query(default=None, description="YYYY-MM-DD"),
-) -> dict[str, Any]:
+def _query_matches_sync(
+    sport_key: str | None = None,
+    event_date: str | None = None,
+) -> list[dict[str, Any]]:
     con = _get_con()
     try:
         tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
@@ -100,21 +73,19 @@ def list_matches(
             {where_sql}
             ORDER BY commence_time_utc, sport_key, home_team, outcome_role
         """
-        rows = _rows_to_dicts(con, sql, params)
-        return {"count": len(rows), "matches": rows}
+        return _rows_to_dicts(con, sql, params)
     finally:
         con.close()
 
 
-@app.get("/api/matches/{event_id}/history")
-def match_history(event_id: str) -> dict[str, Any]:
+def _query_match_movement_sync(event_id: str) -> dict[str, Any]:
     con = _get_con()
     try:
         tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
         if "stg_odds" not in tables:
             raise HTTPException(status_code=400, detail="Липсва модел stg_odds")
 
-        rows = _rows_to_dicts(
+        history_rows = _rows_to_dicts(
             con,
             """
             SELECT
@@ -136,19 +107,10 @@ def match_history(event_id: str) -> dict[str, Any]:
             """,
             [event_id],
         )
-        if not rows:
-            raise HTTPException(status_code=404, detail="Няма записи в историята за този event_id")
+        if not history_rows:
+            raise HTTPException(status_code=404, detail="Няма записи за този event_id")
 
-        return {"event_id": event_id, "count": len(rows), "history": rows}
-    finally:
-        con.close()
-
-
-@app.get("/api/matches/{event_id}/comparison")
-def compare_match_odds(event_id: str) -> dict[str, Any]:
-    con = _get_con()
-    try:
-        rows = _rows_to_dicts(
+        movement_rows = _rows_to_dicts(
             con,
             """
             WITH ranked AS (
@@ -201,52 +163,94 @@ def compare_match_odds(event_id: str) -> dict[str, Any]:
             """,
             [event_id],
         )
-        return {"event_id": event_id, "count": len(rows), "comparison": rows}
+
+        return {
+            "event_id": event_id,
+            "trend": history_rows,
+            "movementRows": movement_rows,
+        }
     finally:
         con.close()
 
 
-@app.get("/api/matches/{event_id}/result")
-def match_result(event_id: str) -> dict[str, Any]:
-    con = _get_con()
-    try:
-        tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
-        if "mart_match_results" not in tables:
-            return {
-                "event_id": event_id,
-                "status": "pending_post_match_module",
-                "message": "Модулът за крайни резултати и победител ще бъде добавен след приключване на мачовете.",
-            }
+@app.get("/api/health")
+async def health() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "db_exists": await asyncio.to_thread(DB_PATH.exists),
+        "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
 
-        rows = _rows_to_dicts(
-            con,
-            "SELECT * FROM mart_match_results WHERE event_id = ?",
-            [event_id],
-        )
-        if not rows:
-            raise HTTPException(status_code=404, detail="Няма краен резултат за този мач")
-        return {"event_id": event_id, "result": rows[0]}
-    finally:
-        con.close()
+
+@app.get("/api/odds")
+async def get_odds_dashboard(
+    date: str | None = Query(default=None, description="YYYY-MM-DD"),
+    sport_key: str | None = Query(default=None),
+) -> dict[str, Any]:
+    matches = await asyncio.to_thread(_query_matches_sync, sport_key, date)
+    tournaments = sorted({m["sport_key"] for m in matches if m.get("sport_key")})
+    last_sync_utc = max(
+        (str(m["extracted_at_utc"]) for m in matches if m.get("extracted_at_utc")),
+        default=None,
+    )
+    return {
+        "matches": matches,
+        "tournaments": tournaments,
+        "lastSyncUtc": last_sync_utc,
+        "postMatch": None,
+    }
+
+
+@app.get("/api/odds/{match_id}/movement")
+async def get_match_movement_endpoint(match_id: str) -> dict[str, Any]:
+    return await asyncio.to_thread(_query_match_movement_sync, match_id)
+
+
+@app.get("/api/matches")
+async def list_matches(
+    sport_key: str | None = Query(default=None, description="Филтър по произволен турнир, напр. soccer_epl"),
+    event_date: str | None = Query(default=None, description="YYYY-MM-DD"),
+) -> dict[str, Any]:
+    matches = await asyncio.to_thread(_query_matches_sync, sport_key, event_date)
+    return {"count": len(matches), "matches": matches}
+
+
+@app.get("/api/matches/{event_id}/history")
+async def match_history(event_id: str) -> dict[str, Any]:
+    data = await asyncio.to_thread(_query_match_movement_sync, event_id)
+    return {"event_id": event_id, "count": len(data["trend"]), "history": data["trend"]}
+
+
+@app.get("/api/matches/{event_id}/comparison")
+async def compare_match_odds(event_id: str) -> dict[str, Any]:
+    data = await asyncio.to_thread(_query_match_movement_sync, event_id)
+    return {"event_id": event_id, "count": len(data["movementRows"]), "comparison": data["movementRows"]}
 
 
 @app.get("/api/prematch/due")
-def prematch_due(
+async def prematch_due(
     window_minutes: int = Query(default=15, ge=1, le=120),
     sport_key: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    slots = get_due_slots_from_db(window_minutes=window_minutes, sport_key_filter=sport_key)
+    slots = await asyncio.to_thread(
+        get_due_slots_from_db,
+        window_minutes=window_minutes,
+        sport_key_filter=sport_key,
+    )
     return {"count": len(slots), "due_slots": slots}
 
 
+@app.post("/api/sync")
 @app.post("/api/prematch/sync")
-def trigger_prematch_sync(
+async def trigger_prematch_sync(
     window_minutes: int = Query(default=15, ge=1, le=120),
     sport_key: str | None = Query(default=None),
     dry_run: bool = Query(default=False),
 ) -> dict[str, Any]:
-    return sync_1h_before_matches(
-        window_minutes=window_minutes,
-        sport_key=sport_key,
-        dry_run=dry_run,
-    )
+    async with _sync_lock:
+        return await asyncio.to_thread(
+            sync_1h_before_matches,
+            window_minutes=window_minutes,
+            sport_key=sport_key,
+            dry_run=dry_run,
+        )
