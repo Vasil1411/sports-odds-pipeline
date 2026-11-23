@@ -36,10 +36,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/warehouse.duckdb data/silver/ data/prematch_db_triggers.json
+          [ -f data/warehouse.duckdb ] && git add data/warehouse.duckdb || true
+          [ -d data/silver ] && git add data/silver/ || true
+          [ -f data/prematch_db_triggers.json ] && git add data/prematch_db_triggers.json || true
           if ! git diff --staged --quiet; then
             git commit -m "chore: sync odds 1h before kickoff"
             git push
           else
             echo "Няма нови мачове в прозореца -1h или няма промени."
-          fi  
+          fi
