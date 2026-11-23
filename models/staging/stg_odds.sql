@@ -6,7 +6,7 @@ with source_data as (
 select
     cast(event_id as varchar) as event_id,
     cast(sport_key as varchar) as sport_key,
-    cast(commence_time as timestamp) as commence_time_utc,
+    cast(cast(commence_time as timestamptz) at time zone 'UTC' as timestamp) as commence_time_utc,
     cast(event_date as date) as event_date,
     cast(home_team as varchar) as home_team,
     cast(away_team as varchar) as away_team,
@@ -17,7 +17,7 @@ select
     cast(outcome_role as varchar) as outcome_role,
     cast(odds_decimal as double) as odds_decimal,
     cast(implied_probability as double) as implied_probability,
-    cast(extracted_at_utc as timestamp) as extracted_at_utc
+    cast(cast(extracted_at_utc as timestamptz) at time zone 'UTC' as timestamp) as extracted_at_utc
 from source_data
 where market_key = 'h2h'
   and odds_decimal > 1.0

@@ -57,6 +57,21 @@ def load_existing_partition_records(part_file: Path) -> dict[tuple, dict]:
     return records_by_key
 
 
+def _parse_utc_dt(dt_val) -> datetime | None:
+    if dt_val is None:
+        return None
+    if isinstance(dt_val, str):
+        parsed = datetime.fromisoformat(dt_val.replace("Z", "+00:00"))
+    elif isinstance(dt_val, datetime):
+        parsed = dt_val
+    else:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def write_silver_jsonl_partitioned(flat_df, output_path: Path) -> int:
     # Групираме новите редове по event_date и ги обединяваме със съществуващите
     # в съответната партиция, като пазим различни extracted_at_utc снимки за история.
@@ -65,11 +80,14 @@ def write_silver_jsonl_partitioned(flat_df, output_path: Path) -> int:
 
     for row in flat_df.toLocalIterator():
         new_rows_seen += 1
-        event_date_str = row["event_date"].isoformat() if row["event_date"] else "unknown"
+        commence_dt = _parse_utc_dt(row["commence_time"])
+        extracted_dt = _parse_utc_dt(row["extracted_at_utc"])
+        event_date_str = commence_dt.date().isoformat() if commence_dt else "unknown"
+
         record = {
             "event_id": row["event_id"],
             "sport_key": row["sport_key"],
-            "commence_time": row["commence_time"].isoformat() if row["commence_time"] else None,
+            "commence_time": commence_dt.isoformat() if commence_dt else None,
             "event_date": event_date_str,
             "home_team": row["home_team"],
             "away_team": row["away_team"],
@@ -78,7 +96,7 @@ def write_silver_jsonl_partitioned(flat_df, output_path: Path) -> int:
             "market_key": row["market_key"],
             "outcome_name": row["outcome_name"],
             "odds_decimal": float(row["odds_decimal"]) if row["odds_decimal"] is not None else None,
-            "extracted_at_utc": row["extracted_at_utc"].isoformat() if row["extracted_at_utc"] else None,
+            "extracted_at_utc": extracted_dt.isoformat() if extracted_dt else None,
             "outcome_role": row["outcome_role"],
             "implied_probability": float(row["implied_probability"]) if row["implied_probability"] is not None else None,
         }
@@ -128,13 +146,13 @@ def transform_odds_to_silver(run_date: str) -> None:
         raw_df = spark.read.option("multiLine", "true").json([str(p) for p in input_files])
 
         events_df = (
-            raw_df.withColumn("extracted_at_utc", F.to_timestamp("extracted_at_utc"))
+            raw_df.withColumn("extracted_at_utc", F.col("extracted_at_utc"))
             .withColumn("event", F.explode("events"))
             .select(
                 "extracted_at_utc",
                 F.col("event.id").alias("event_id"),
                 F.col("event.sport_key").alias("sport_key"),
-                F.to_timestamp("event.commence_time").alias("commence_time"),
+                F.col("event.commence_time").alias("commence_time"),
                 F.col("event.home_team").alias("home_team"),
                 F.col("event.away_team").alias("away_team"),
                 F.explode("event.bookmakers").alias("bookmaker"),
@@ -147,7 +165,6 @@ def transform_odds_to_silver(run_date: str) -> None:
                 "event_id",
                 "sport_key",
                 "commence_time",
-                F.to_date("commence_time").alias("event_date"),
                 "home_team",
                 "away_team",
                 F.col("bookmaker.key").alias("bookmaker_key"),
@@ -161,7 +178,6 @@ def transform_odds_to_silver(run_date: str) -> None:
                 "event_id",
                 "sport_key",
                 "commence_time",
-                "event_date",
                 "home_team",
                 "away_team",
                 "bookmaker_key",
