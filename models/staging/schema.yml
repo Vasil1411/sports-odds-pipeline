@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: stg_odds
+    description: "Почистени коефициенти от Silver Parquet слоя."
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+      - name: odds_decimal
+        tests:
+          - not_null
+      - name: outcome_role
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["home", "away", "draw", "other"]

@@ -1,0 +1,14 @@
+name: "sports_odds"
+version: "1.0.0"
+config-version: 2
+
+profile: "sports_odds"
+
+model-paths: ["models"]
+
+models:
+  sports_odds:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
