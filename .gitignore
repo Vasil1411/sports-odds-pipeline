@@ -1,10 +1,19 @@
 ﻿.venv/
 .env
-data/
+
 __pycache__/
-*.duckdb
+
 
 
 target/
 logs/
 .user.yml
+
+data/~$*
+data/raw/
+data/*.xlsx
+
+# Изрично разрешаваме базата и Silver слоя (ако по-горе има общо правило data/)
+!data/warehouse.duckdb
+!data/silver/
+!data/prematch_db_triggers.json
