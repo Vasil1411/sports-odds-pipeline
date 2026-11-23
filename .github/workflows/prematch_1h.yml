@@ -2,14 +2,14 @@ name: Prematch 1h Auto Sync
 
 on:
   schedule:
-    # Проверява на всеки 5 минути дали има мач в прозореца "1 час преди началото"
+    # Проверява на всеки 5 минути дали има мач в прозореца от 1 час до 1 минута преди началото
     - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       window_minutes:
-        description: "Прозорец в минути след 1h trigger-а (за нормален ход остави 15)"
+        description: "Прозорец в минути (от 1h до 1m преди мача — остави 59)"
         required: false
-        default: "15"
+        default: "59"
         type: string
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests python-dotenv pydantic duckdb pandas openpyxl dbt-duckdb
+          pip install requests python-dotenv pydantic duckdb pandas openpyxl dbt-duckdb pyspark
 
       - name: Run 1h prematch sync for all matches in DB
         env:
@@ -38,7 +38,7 @@ jobs:
         run: |
           WINDOW_MINUTES="${{ inputs.window_minutes }}"
           if [ -z "$WINDOW_MINUTES" ]; then
-            WINDOW_MINUTES="15"
+            WINDOW_MINUTES="59"
           fi
           python src/prematch_from_db.py --window-minutes "$WINDOW_MINUTES"
 
@@ -49,9 +49,10 @@ jobs:
           [ -f data/warehouse.duckdb ] && git add data/warehouse.duckdb || true
           [ -d data/silver ] && git add data/silver/ || true
           [ -f data/prematch_db_triggers.json ] && git add data/prematch_db_triggers.json || true
+          [ -d data/raw ] && git add data/raw/ || true
           if ! git diff --staged --quiet; then
-            git commit -m "chore: sync odds 1h before kickoff"
+            git commit -m "chore: sync odds 1h to 1m before kickoff"
             git push
           else
-            echo "Няма нови мачове в прозореца -1h или няма промени."
+            echo "Няма нови мачове в прозореца или няма промени."
           fi
