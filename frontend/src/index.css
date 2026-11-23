@@ -1,0 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@layer base {
+  :root {
+    font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    color-scheme: light;
+  }
+
+  body {
+    min-width: 320px;
+    background: #f6f8fa;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  select,
+  input {
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
