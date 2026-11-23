@@ -5,6 +5,12 @@ on:
     # Проверява на всеки 5 минути дали има мач в прозореца "1 час преди началото"
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      window_minutes:
+        description: "Прозорец в минути след 1h trigger-а (за нормален ход остави 15)"
+        required: false
+        default: "15"
+        type: string
 
 permissions:
   contents: write
@@ -30,7 +36,11 @@ jobs:
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
-          python src/prematch_from_db.py --window-minutes 15
+          WINDOW_MINUTES="${{ inputs.window_minutes }}"
+          if [ -z "$WINDOW_MINUTES" ]; then
+            WINDOW_MINUTES="15"
+          fi
+          python src/prematch_from_db.py --window-minutes "$WINDOW_MINUTES"
 
       - name: Commit updated database and history
         run: |
