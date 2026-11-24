@@ -46,6 +46,19 @@ def _rows_to_dicts(
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
+def _team_code(name: str | None) -> str:
+    if not name:
+        return "UNK"
+    parts = [
+        p
+        for p in name.replace("&", " ").split()
+        if p.lower() not in {"fc", "afc", "and", "of", "the"}
+    ]
+    if len(parts) >= 2:
+        return "".join(p[0] for p in parts[:3]).upper()
+    return parts[0][:3].upper()
+
+
 def _query_matches_sync(
     sport_key: str | None = None,
     event_date: str | None = None,
@@ -173,6 +186,176 @@ def _query_match_movement_sync(event_id: str) -> dict[str, Any]:
         con.close()
 
 
+def _query_results_sync(
+    sport_key: str | None = None,
+    event_date: str | None = None,
+) -> list[dict[str, Any]]:
+    con = _get_con()
+    try:
+        tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+        if "match_results" not in tables:
+            return []
+
+        where: list[str] = ["COALESCE(completed, FALSE) = TRUE"]
+        params: list[Any] = []
+
+        if sport_key:
+            where.append("sport_key = ?")
+            params.append(sport_key)
+        if event_date:
+            where.append("CAST(commence_time_utc AS DATE) = CAST(? AS DATE)")
+            params.append(event_date)
+
+        sql = f"""
+            SELECT *
+            FROM match_results
+            WHERE {' AND '.join(where)}
+            ORDER BY commence_time_utc DESC, fetched_at_utc DESC
+        """
+        return _rows_to_dicts(con, sql, params)
+    finally:
+        con.close()
+
+
+def _build_post_match_summary_sync(
+    event_date: str | None = None,
+    sport_key: str | None = None,
+    event_id: str | None = None,
+) -> dict[str, Any] | None:
+    con = _get_con()
+    try:
+        tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+        if "match_results" not in tables:
+            return None
+
+        where: list[str] = ["COALESCE(completed, FALSE) = TRUE"]
+        params: list[Any] = []
+
+        if event_id:
+            where.append("event_id = ?")
+            params.append(event_id)
+        else:
+            if sport_key:
+                where.append("sport_key = ?")
+                params.append(sport_key)
+            if event_date:
+                where.append("CAST(commence_time_utc AS DATE) <= CAST(? AS DATE)")
+                params.append(event_date)
+
+        result_rows = _rows_to_dicts(
+            con,
+            f"""
+            SELECT *
+            FROM match_results
+            WHERE {' AND '.join(where)}
+            ORDER BY commence_time_utc DESC, fetched_at_utc DESC
+            LIMIT 1
+            """,
+            params,
+        )
+        if not result_rows:
+            return None
+
+        res = result_rows[0]
+        match_event_id = res["event_id"]
+
+        odds_rows: list[dict[str, Any]] = []
+        if "mart_match_consensus_odds" in tables:
+            odds_rows = _rows_to_dicts(
+                con,
+                """
+                SELECT outcome_role, outcome_name, avg_odds, avg_implied_prob
+                FROM mart_match_consensus_odds
+                WHERE event_id = ?
+                """,
+                [match_event_id],
+            )
+
+        winner_role = res.get("winner_role")
+        home_score = res.get("home_score")
+        away_score = res.get("away_score")
+
+        if not winner_role and home_score is not None and away_score is not None:
+            if home_score > away_score:
+                winner_role = "home"
+            elif away_score > home_score:
+                winner_role = "away"
+            else:
+                winner_role = "draw"
+
+        role_order = {"home": 0, "draw": 1, "away": 2}
+        odds_by_role = {
+            r["outcome_role"]: r for r in odds_rows if r.get("outcome_role")
+        }
+
+        outcomes: list[dict[str, Any]] = []
+        for role, default_label in [
+            ("home", res["home_team"]),
+            ("draw", "Draw"),
+            ("away", res["away_team"]),
+        ]:
+            o = odds_by_role.get(role)
+            avg_odds = o.get("avg_odds") if o else None
+            avg_prob = o.get("avg_implied_prob") if o else None
+            label = o["outcome_name"] if o and o.get("outcome_name") else default_label
+            outcomes.append(
+                {
+                    "_role": role,
+                    "label": label,
+                    "odds": f"{float(avg_odds):.2f}" if avg_odds is not None else "—",
+                    "probability": f"{float(avg_prob) * 100:.1f}%" if avg_prob is not None else "—",
+                    "won": bool(winner_role == role),
+                }
+            )
+
+        outcomes.sort(key=lambda item: role_order.get(item["_role"], 99))
+        for item in outcomes:
+            item.pop("_role", None)
+
+        home_name = res["home_team"]
+        away_name = res["away_team"]
+        score_str = (
+            f"{home_score} - {away_score}"
+            if home_score is not None and away_score is not None
+            else "FT"
+        )
+
+        if winner_role == "home":
+            headline = f"{home_name} full-time win"
+        elif winner_role == "away":
+            headline = f"{away_name} full-time win"
+        else:
+            headline = "Full-time draw"
+
+        winner_outcome = next((item for item in outcomes if item["won"]), None)
+        if winner_outcome and winner_outcome["odds"] != "—":
+            description = (
+                f"{home_name} finished {score_str} against {away_name}. "
+                f"Winning pre-match consensus on {winner_outcome['label']} was "
+                f"{winner_outcome['odds']} ({winner_outcome['probability']})."
+            )
+        else:
+            description = f"{home_name} finished {score_str} against {away_name}."
+
+        commence_str = str(res.get("commence_time_utc") or "")[:10]
+
+        return {
+            "event_id": match_event_id,
+            "home": home_name,
+            "homeCode": _team_code(home_name),
+            "away": away_name,
+            "awayCode": _team_code(away_name),
+            "score": score_str,
+            "date": commence_str,
+            "tournament": res.get("sport_key") or "",
+            "headline": headline,
+            "description": description,
+            "outcomes": outcomes,
+        }
+    finally:
+        con.close()
+
+
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
     return {
@@ -193,12 +376,26 @@ async def get_odds_dashboard(
         (str(m["extracted_at_utc"]) for m in matches if m.get("extracted_at_utc")),
         default=None,
     )
+    post_match = await asyncio.to_thread(
+        _build_post_match_summary_sync,
+        date,
+        sport_key,
+    )
     return {
         "matches": matches,
         "tournaments": tournaments,
         "lastSyncUtc": last_sync_utc,
-        "postMatch": None,
+        "postMatch": post_match,
     }
+
+
+@app.get("/api/results")
+async def list_results(
+    sport_key: str | None = Query(default=None),
+    event_date: str | None = Query(default=None, description="YYYY-MM-DD"),
+) -> dict[str, Any]:
+    results = await asyncio.to_thread(_query_results_sync, sport_key, event_date)
+    return {"count": len(results), "results": results}
 
 
 @app.get("/api/odds/{match_id}/movement")
