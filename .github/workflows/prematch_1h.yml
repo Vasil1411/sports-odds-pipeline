@@ -2,8 +2,8 @@ name: Prematch 1h Auto Sync
 
 on:
   schedule:
-    # Проверява на всеки 5 минути дали има мач в прозореца от 1 час до 1 минута преди началото
-    - cron: "*/5 * * * *"
+    # Every 10 minutes from 00:00 to 21:59 and at 23:00 (UTC)
+    - cron: "*/10 0-21,23 * * *"
   workflow_dispatch:
     inputs:
       window_minutes:
