@@ -11,14 +11,16 @@ import { type MovementRow } from './types/movementRow'
 import { type PostMatchSummary } from './types/postMatchSummary'
 import { type TrendPoint } from './types/trendPoint'
 
+const ALL_TOURNAMENTS = 'All Tournaments'
+
 export default function App() {
   const todayUtc = new Date().toISOString().slice(0, 10)
 
   const [date, setDate] = useState(todayUtc)
-  const [tournament, setTournament] = useState('All Tournaments')
+  const [tournament, setTournament] = useState(ALL_TOURNAMENTS)
   const [tournaments, setTournaments] = useState<string[]>([])
   const [matches, setMatches] = useState<Match[]>([])
-  const [selectedId, setSelectedId] = useState<string | number | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [trend, setTrend] = useState<TrendPoint[]>([])
   const [movementRows, setMovementRows] = useState<MovementRow[]>([])
   const [postMatch, setPostMatch] = useState<PostMatchSummary | null>(null)
@@ -28,27 +30,40 @@ export default function App() {
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchDashboardData(date)
-      setMatches(data.matches)
-      setTournaments(data.tournaments)
-      setPostMatch(data.postMatch)
-      setLastSyncUtc(data.lastSyncUtc)
-      setSelectedId((prev) =>
-        prev && data.matches.some((m) => m.id === prev) ? prev : (data.matches[0]?.id ?? null),
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Неуспешно зареждане от API')
-    } finally {
-      setLoading(false)
-    }
-  }, [date])
+  const loadDashboard = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const sportKey = tournament === ALL_TOURNAMENTS ? undefined : tournament
+        const data = await fetchDashboardData(date, { sportKey, signal })
+        if (signal?.aborted) return
+
+        setMatches(data.matches)
+        setTournaments(data.tournaments)
+        setPostMatch(data.postMatch)
+        setLastSyncUtc(data.lastSyncUtc)
+        setSelectedId((prev) =>
+          prev && data.matches.some((m) => m.event_id === prev)
+            ? prev
+            : (data.matches[0]?.event_id ?? null),
+        )
+      } catch (err) {
+        if (signal?.aborted) return
+        setError(err instanceof Error ? err.message : 'Неуспешно зареждане от API')
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false)
+        }
+      }
+    },
+    [date, tournament],
+  )
 
   useEffect(() => {
-    loadDashboard()
+    const controller = new AbortController()
+    loadDashboard(controller.signal)
+    return () => controller.abort()
   }, [loadDashboard])
 
   useEffect(() => {
@@ -57,29 +72,43 @@ export default function App() {
       setMovementRows([])
       return
     }
-    fetchMatchMovement(selectedId)
+
+    const controller = new AbortController()
+    fetchMatchMovement(selectedId, { signal: controller.signal })
       .then((res) => {
+        if (controller.signal.aborted) return
         setTrend(res.trend)
         setMovementRows(res.movementRows)
       })
-      .catch(() => {
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        console.warn('Неуспешно зареждане на движението:', err)
         setTrend([])
         setMovementRows([])
       })
+
+    return () => controller.abort()
   }, [selectedId])
 
   const visibleMatches = useMemo(
-    () => (tournament === 'All Tournaments' ? matches : matches.filter((match) => match.tournament === tournament)),
+    () =>
+      tournament === ALL_TOURNAMENTS
+        ? matches
+        : matches.filter((match) => match.sport_key === tournament),
     [matches, tournament],
   )
 
-  const selectedMatch = matches.find((match) => match.id === selectedId) ?? null
+  const selectedMatch = useMemo(
+    () => matches.find((match) => match.event_id === selectedId) ?? null,
+    [matches, selectedId],
+  )
 
   const handleSync = async () => {
     setSyncing(true)
     setError(null)
     try {
-      await triggerPipelineSync()
+      const sportKey = tournament === ALL_TOURNAMENTS ? undefined : tournament
+      await triggerPipelineSync({ sportKey })
       await loadDashboard()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Грешка при синхронизация')
@@ -110,7 +139,7 @@ export default function App() {
 
         <MatchesTable
           matches={visibleMatches}
-          selectedId={selectedMatch?.id ?? null}
+          selectedId={selectedMatch?.event_id ?? null}
           onSelectMatch={setSelectedId}
           loading={loading}
         />

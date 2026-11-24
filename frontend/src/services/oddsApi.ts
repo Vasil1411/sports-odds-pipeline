@@ -1,8 +1,8 @@
 import { type Match } from '../types/match'
+import { type MovementRow } from '../types/movementRow'
 import { type OutcomeRole } from '../types/outcome'
 import { type PostMatchSummary } from '../types/postMatchSummary'
 import { type TrendPoint } from '../types/trendPoint'
-import { type MovementRow } from '../types/movementRow'
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '')
 
@@ -26,6 +26,13 @@ function parseOutcomeRole(value: unknown): OutcomeRole {
     return role
   }
   return 'other'
+}
+
+function cleanSportKey(sportKey?: string): string | undefined {
+  if (!sportKey || sportKey === 'All Tournaments') {
+    return undefined
+  }
+  return sportKey
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -71,6 +78,45 @@ function normalizeMatch(row: Record<string, unknown>): Match {
   }
 }
 
+function normalizeTrendPoint(row: Record<string, unknown>): TrendPoint {
+  return {
+    event_id: String(row.event_id ?? ''),
+    sport_key: String(row.sport_key ?? ''),
+    commence_time_utc: String(row.commence_time_utc ?? ''),
+    event_date: row.event_date ? String(row.event_date) : undefined,
+    home_team: String(row.home_team ?? ''),
+    away_team: String(row.away_team ?? ''),
+    bookmaker_key: String(row.bookmaker_key ?? ''),
+    bookmaker_title: String(row.bookmaker_title ?? row.bookmaker_key ?? ''),
+    market_key: row.market_key ? String(row.market_key) : undefined,
+    outcome_name: String(row.outcome_name ?? ''),
+    outcome_role: parseOutcomeRole(row.outcome_role),
+    odds_decimal: Number(row.odds_decimal ?? 0),
+    implied_probability: Number(row.implied_probability ?? 0),
+    extracted_at_utc: String(row.extracted_at_utc ?? ''),
+  }
+}
+
+function normalizeMovementRow(row: Record<string, unknown>): MovementRow {
+  return {
+    event_id: String(row.event_id ?? ''),
+    sport_key: String(row.sport_key ?? ''),
+    home_team: String(row.home_team ?? ''),
+    away_team: String(row.away_team ?? ''),
+    bookmaker_key: String(row.bookmaker_key ?? ''),
+    outcome_role: parseOutcomeRole(row.outcome_role),
+    outcome_name: String(row.outcome_name ?? ''),
+    first_seen_utc: String(row.first_seen_utc ?? ''),
+    last_seen_utc: String(row.last_seen_utc ?? ''),
+    first_odds: Number(row.first_odds ?? 0),
+    latest_odds: Number(row.latest_odds ?? 0),
+    odds_diff: Number(row.odds_diff ?? 0),
+    first_prob: Number(row.first_prob ?? 0),
+    latest_prob: Number(row.latest_prob ?? 0),
+    prob_diff_pp: Number(row.prob_diff_pp ?? 0),
+  }
+}
+
 function normalizePostMatch(raw: unknown): PostMatchSummary | null {
   if (!raw || typeof raw !== 'object') return null
   const data = raw as Partial<PostMatchSummary>
@@ -95,44 +141,50 @@ function normalizePostMatch(raw: unknown): PostMatchSummary | null {
 
 export async function fetchDashboardData(
   date: string,
-  options?: { sportKey?: string; signal?: AbortSignal }
+  options?: string | { sportKey?: string; signal?: AbortSignal },
 ): Promise<DashboardPayload> {
-  const params = new URLSearchParams({ date })
-  if (options?.sportKey) {
-    params.set('sport_key', options.sportKey)
+  const sportKey = typeof options === 'string' ? cleanSportKey(options) : cleanSportKey(options?.sportKey)
+  const signal = typeof options === 'object' ? options?.signal : undefined
+
+  const params = new URLSearchParams()
+  if (date) {
+    params.set('date', date)
+  }
+  if (sportKey) {
+    params.set('sport_key', sportKey)
   }
 
   const raw = await requestJson<Partial<DashboardPayload> & { matches?: Record<string, unknown>[] }>(
     `${API_BASE}/api/odds?${params.toString()}`,
-    { signal: options?.signal }
+    { signal },
   )
 
   const matches = Array.isArray(raw.matches) ? raw.matches.map(normalizeMatch) : []
   const tournaments = Array.isArray(raw.tournaments)
-    ? raw.tournaments
+    ? raw.tournaments.map((t) => String(t)).filter(Boolean)
     : Array.from(new Set(matches.map((m) => m.sport_key).filter(Boolean))).sort()
 
   return {
     matches,
     tournaments,
-    lastSyncUtc: raw.lastSyncUtc ?? null,
+    lastSyncUtc: raw.lastSyncUtc ? String(raw.lastSyncUtc) : null,
     postMatch: normalizePostMatch(raw.postMatch),
   }
 }
 
 export async function fetchMatchMovement(
   matchId: string | number,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal },
 ): Promise<MatchMovementPayload> {
   const encodedId = encodeURIComponent(String(matchId))
-  const raw = await requestJson<Partial<MatchMovementPayload>>(
-    `${API_BASE}/api/odds/${encodedId}/movement`,
-    { signal: options?.signal }
-  )
+  const raw = await requestJson<{
+    trend?: Record<string, unknown>[]
+    movementRows?: Record<string, unknown>[]
+  }>(`${API_BASE}/api/odds/${encodedId}/movement`, { signal: options?.signal })
 
   return {
-    trend: Array.isArray(raw.trend) ? raw.trend : [],
-    movementRows: Array.isArray(raw.movementRows) ? raw.movementRows : [],
+    trend: Array.isArray(raw.trend) ? raw.trend.map(normalizeTrendPoint) : [],
+    movementRows: Array.isArray(raw.movementRows) ? raw.movementRows.map(normalizeMovementRow) : [],
   }
 }
 
@@ -149,8 +201,9 @@ export async function triggerPipelineSync(options?: {
   if (typeof options?.windowMinutes === 'number') {
     params.set('window_minutes', String(options.windowMinutes))
   }
-  if (options?.sportKey) {
-    params.set('sport_key', options.sportKey)
+  const sportKey = cleanSportKey(options?.sportKey)
+  if (sportKey) {
+    params.set('sport_key', sportKey)
   }
   if (typeof options?.dryRun === 'boolean') {
     params.set('dry_run', String(options.dryRun))
@@ -172,7 +225,7 @@ export async function triggerPipelineSync(options?: {
 
 export async function syncAndRefreshDashboard(
   date: string,
-  options?: { windowMinutes?: number; sportKey?: string }
+  options?: { windowMinutes?: number; sportKey?: string },
 ): Promise<DashboardPayload> {
   await triggerPipelineSync({
     windowMinutes: options?.windowMinutes,
