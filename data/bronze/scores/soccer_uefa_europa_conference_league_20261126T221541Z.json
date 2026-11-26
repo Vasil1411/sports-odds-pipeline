@@ -1,0 +1,362 @@
+[
+  {
+    "id": "b11e430b1d8052d0c718bcee69145f7a",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T15:30:00Z",
+    "completed": true,
+    "home_team": "FC Kairat",
+    "away_team": "Mjällby AIF",
+    "scores": [
+      {
+        "name": "FC Kairat",
+        "score": "1"
+      },
+      {
+        "name": "Mjällby AIF",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "e1bfce2837ee873eec90dbefe31844ac",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "SK Brann",
+    "away_team": "AGF Aarhus",
+    "scores": [
+      {
+        "name": "SK Brann",
+        "score": "1"
+      },
+      {
+        "name": "AGF Aarhus",
+        "score": "4"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "c587e5656d1f38f068cba1b168462ba4",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Hearts",
+    "away_team": "AS Monaco",
+    "scores": [
+      {
+        "name": "Hearts",
+        "score": "2"
+      },
+      {
+        "name": "AS Monaco",
+        "score": "3"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "8a0dc963ce319d55751d4d07c5152600",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Ajax",
+    "away_team": "FC Thun",
+    "scores": [
+      {
+        "name": "Ajax",
+        "score": "4"
+      },
+      {
+        "name": "FC Thun",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "bbab118a8c6ca33b6b0e7b5ed36fecd8",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Brighton and Hove Albion",
+    "away_team": "Universitatea Craiova",
+    "scores": [
+      {
+        "name": "Brighton and Hove Albion",
+        "score": "4"
+      },
+      {
+        "name": "Universitatea Craiova",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "cbe7d454dbea3c32de84901cced19bd4",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "FC Iberia 1999",
+    "away_team": "Getafe",
+    "scores": [
+      {
+        "name": "FC Iberia 1999",
+        "score": "1"
+      },
+      {
+        "name": "Getafe",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "4f5b1a808bafc37b7c0041e947c2e536",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "FK Jablonec",
+    "away_team": "FC Lugano",
+    "scores": [
+      {
+        "name": "FK Jablonec",
+        "score": "2"
+      },
+      {
+        "name": "FC Lugano",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "48a49061ae356d2a8b3b3976ec21508d",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Pafos FC",
+    "away_team": "FC Midtjylland",
+    "scores": [
+      {
+        "name": "Pafos FC",
+        "score": "0"
+      },
+      {
+        "name": "FC Midtjylland",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "679c499344805de09a59a2a2535cd0c8",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "FK Kauno Žalgiris",
+    "away_team": "Riga FC",
+    "scores": [
+      {
+        "name": "FK Kauno Žalgiris",
+        "score": "2"
+      },
+      {
+        "name": "Riga FC",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "cb6689f811b7ce08379eef028e2254a4",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "KF Egnatia",
+    "away_team": "Lincoln Red Imps FC",
+    "scores": [
+      {
+        "name": "KF Egnatia",
+        "score": "2"
+      },
+      {
+        "name": "Lincoln Red Imps FC",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "1f0d932ff8b08ed2c3b775e60d92bb4e",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "FK Borac Banja Luka",
+    "away_team": "Atalanta BC",
+    "scores": [
+      {
+        "name": "FK Borac Banja Luka",
+        "score": "2"
+      },
+      {
+        "name": "Atalanta BC",
+        "score": "3"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "4f10f55b47b83f7f4f2a8cd745a9e67f",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Inter Club d'Escaldes",
+    "away_team": "FC Copenhagen",
+    "scores": [
+      {
+        "name": "Inter Club d'Escaldes",
+        "score": "2"
+      },
+      {
+        "name": "FC Copenhagen",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "92db66d09fdcf10ff8561cb7ec09732e",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "FC Nordsjaelland",
+    "away_team": "Panathinaikos FC",
+    "scores": [
+      {
+        "name": "FC Nordsjaelland",
+        "score": "3"
+      },
+      {
+        "name": "Panathinaikos FC",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "dd5f6def5ea1aa9e0a0f45e3605ac64e",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "SC Freiburg",
+    "away_team": "FC Twente Enschede",
+    "scores": [
+      {
+        "name": "SC Freiburg",
+        "score": "2"
+      },
+      {
+        "name": "FC Twente Enschede",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "3c6175802b9110c0abdb30f491965093",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Gent",
+    "away_team": "Red Star Belgrade",
+    "scores": [
+      {
+        "name": "Gent",
+        "score": "1"
+      },
+      {
+        "name": "Red Star Belgrade",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "9f2cd85ad777bea9550b987dc409b280",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Hajduk Split",
+    "away_team": "Sint Truiden",
+    "scores": [
+      {
+        "name": "Hajduk Split",
+        "score": "0"
+      },
+      {
+        "name": "Sint Truiden",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "1abbe02767589722b5de92e94e96429d",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "SC Braga",
+    "away_team": "KuPS Kuopio",
+    "scores": [
+      {
+        "name": "SC Braga",
+        "score": "4"
+      },
+      {
+        "name": "KuPS Kuopio",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  },
+  {
+    "id": "491426b0dae5aecf2b92525815131cb2",
+    "sport_key": "soccer_uefa_europa_conference_league",
+    "sport_title": "UEFA Europa Conference League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "PFC CSKA Sofia",
+    "away_team": "Trabzonspor",
+    "scores": [
+      {
+        "name": "PFC CSKA Sofia",
+        "score": "1"
+      },
+      {
+        "name": "Trabzonspor",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:36Z"
+  }
+]

@@ -1,0 +1,362 @@
+[
+  {
+    "id": "31ebd41354699af625fa3372932206f0",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Olympiakos Piraeus",
+    "away_team": "AC Milan",
+    "scores": [
+      {
+        "name": "Olympiakos Piraeus",
+        "score": "2"
+      },
+      {
+        "name": "AC Milan",
+        "score": "4"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "38332e4cbb2b3991904b00a75dc3769d",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Viktoria Plzeň",
+    "away_team": "Benfica",
+    "scores": [
+      {
+        "name": "Viktoria Plzeň",
+        "score": "4"
+      },
+      {
+        "name": "Benfica",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "a18687d4f17a96a7732fb0c8673ea037",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Besiktas JK",
+    "away_team": "Hapoel Be'er Sheva",
+    "scores": [
+      {
+        "name": "Besiktas JK",
+        "score": "2"
+      },
+      {
+        "name": "Hapoel Be'er Sheva",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "7da3be4f6fe50a39ecdf3a8dc12966c8",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Celta Vigo",
+    "away_team": "Bournemouth",
+    "scores": [
+      {
+        "name": "Celta Vigo",
+        "score": "1"
+      },
+      {
+        "name": "Bournemouth",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "707c513bfa43b45b7813126e09ad08d8",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:45:00Z",
+    "completed": true,
+    "home_team": "Marseille",
+    "away_team": "PFC Levski Sofia",
+    "scores": [
+      {
+        "name": "Marseille",
+        "score": "1"
+      },
+      {
+        "name": "PFC Levski Sofia",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "cdf4b848361b0374c2027326bd54d8eb",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:46:00Z",
+    "completed": true,
+    "home_team": "Dinamo Zagreb",
+    "away_team": "Bayer Leverkusen",
+    "scores": [
+      {
+        "name": "Dinamo Zagreb",
+        "score": "0"
+      },
+      {
+        "name": "Bayer Leverkusen",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "5902b4703e9ddc1f573091e14107834c",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:46:00Z",
+    "completed": true,
+    "home_team": "Salzburg",
+    "away_team": "FC Ararat-Armenia",
+    "scores": [
+      {
+        "name": "Salzburg",
+        "score": "2"
+      },
+      {
+        "name": "FC Ararat-Armenia",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "3ee2bf8a6fa6add543f64ac3e9813976",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T17:46:00Z",
+    "completed": true,
+    "home_team": "Union Saint-Gilloise",
+    "away_team": "Lech Poznań",
+    "scores": [
+      {
+        "name": "Union Saint-Gilloise",
+        "score": "2"
+      },
+      {
+        "name": "Lech Poznań",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "189401357a4b5e5920ca9ec1207a6566",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Sparta Prague",
+    "away_team": "AZ Alkmaar",
+    "scores": [
+      {
+        "name": "Sparta Prague",
+        "score": "2"
+      },
+      {
+        "name": "AZ Alkmaar",
+        "score": "4"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "de10dd2e5917108a9478c07275ba8cdb",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "OFI Crete",
+    "away_team": "Anderlecht",
+    "scores": [
+      {
+        "name": "OFI Crete",
+        "score": "1"
+      },
+      {
+        "name": "Anderlecht",
+        "score": "3"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "3fe17778f32b5fd0f218f9be6b0681cc",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Crystal Palace",
+    "away_team": "Real Sociedad",
+    "scores": [
+      {
+        "name": "Crystal Palace",
+        "score": "2"
+      },
+      {
+        "name": "Real Sociedad",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "0e5553b52ece07115fbdf8145df0c377",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Ferencváros TC",
+    "away_team": "NK Celje",
+    "scores": [
+      {
+        "name": "Ferencváros TC",
+        "score": "0"
+      },
+      {
+        "name": "NK Celje",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "413409b43875d1bdb627a9e7fb6bc3fd",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Sunderland",
+    "away_team": "Jagiellonia Białystok",
+    "scores": [
+      {
+        "name": "Sunderland",
+        "score": "1"
+      },
+      {
+        "name": "Jagiellonia Białystok",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "d6377d30379e5d3053c1076646d83f78",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Juventus",
+    "away_team": "Omonoia FC",
+    "scores": [
+      {
+        "name": "Juventus",
+        "score": "4"
+      },
+      {
+        "name": "Omonoia FC",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "a24c89b65c5a30fb9473735049589e64",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "Lyon",
+    "away_team": "Lillestrom",
+    "scores": [
+      {
+        "name": "Lyon",
+        "score": "0"
+      },
+      {
+        "name": "Lillestrom",
+        "score": "0"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "e836bc70afa19b0db28fb320a97662e4",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "NEC Nijmegen",
+    "away_team": "Rennes",
+    "scores": [
+      {
+        "name": "NEC Nijmegen",
+        "score": "3"
+      },
+      {
+        "name": "Rennes",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "df4947bbe49057782feacca38c03e790",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:00:00Z",
+    "completed": true,
+    "home_team": "TSG Hoffenheim",
+    "away_team": "SK Sturm Graz",
+    "scores": [
+      {
+        "name": "TSG Hoffenheim",
+        "score": "3"
+      },
+      {
+        "name": "SK Sturm Graz",
+        "score": "1"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  },
+  {
+    "id": "e2036567ee9394a55f022358781dce15",
+    "sport_key": "soccer_uefa_europa_league",
+    "sport_title": "UEFA Europa League",
+    "commence_time": "2026-11-26T20:01:00Z",
+    "completed": true,
+    "home_team": "Torreense",
+    "away_team": "Celtic",
+    "scores": [
+      {
+        "name": "Torreense",
+        "score": "1"
+      },
+      {
+        "name": "Celtic",
+        "score": "2"
+      }
+    ],
+    "last_update": "2026-11-26T22:15:35Z"
+  }
+]
