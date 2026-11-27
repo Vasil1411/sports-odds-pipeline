@@ -74,14 +74,21 @@ def _parse_utc_dt(dt_val) -> datetime | None:
 
 def write_silver_jsonl_partitioned(flat_df, output_path: Path) -> int:
     # Групираме новите редове по event_date и ги обединяваме със съществуващите
-    # в съответната партиция, като пазим различни extracted_at_utc снимки за история.
+    # в съответната партиция, като пазим само пре-мач снимки (extracted_at_utc < commence_time).
     new_by_partition: dict[str, dict[tuple, dict]] = {}
     new_rows_seen = 0
+    skipped_live_rows = 0
 
     for row in flat_df.toLocalIterator():
-        new_rows_seen += 1
         commence_dt = _parse_utc_dt(row["commence_time"])
         extracted_dt = _parse_utc_dt(row["extracted_at_utc"])
+
+        # Не допускаме коефициенти, изтеглени след или точно в момента на началото на мача
+        if commence_dt and extracted_dt and extracted_dt >= commence_dt:
+            skipped_live_rows += 1
+            continue
+
+        new_rows_seen += 1
         event_date_str = commence_dt.date().isoformat() if commence_dt else "unknown"
 
         record = {
@@ -127,7 +134,10 @@ def write_silver_jsonl_partitioned(flat_df, output_path: Path) -> int:
         part_file.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         total_partition_rows += len(sorted_records)
 
-    print(f"Обработени нови/актуални редове от текущия batch: {new_rows_seen}")
+    print(
+        f"Обработени пре-мач редове от текущия batch: {new_rows_seen} "
+        f"(пропуснати след начало на мач: {skipped_live_rows})"
+    )
     return total_partition_rows
 
 
@@ -192,7 +202,7 @@ def transform_odds_to_silver(run_date: str) -> None:
                 "outcome_role",
                 F.when(F.col("outcome_name") == F.col("home_team"), F.lit("home"))
                 .when(F.col("outcome_name") == F.col("away_team"), F.lit("away"))
-                .when(F.col("outcome_name") == F.lit("Draw"), F.lit("draw"))
+                .when(F.col("outcome_name") == F.col("Draw"), F.lit("draw"))
                 .otherwise(F.lit("other")),
             )
             .withColumn(

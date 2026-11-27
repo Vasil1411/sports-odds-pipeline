@@ -1,0 +1,51 @@
+name: Daily Top 5 Leagues Sync (11:15 BG)
+
+on:
+  schedule:
+    # 11:15 EET (зимно време в България = 09:15 UTC)
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: warehouse-db-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-top5-leagues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests python-dotenv pydantic duckdb pandas openpyxl dbt-duckdb pyspark
+
+      - name: Run daily Top 5 leagues sync
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python src/daily_top5_sync.py
+
+      - name: Commit updated database and history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f data/warehouse.duckdb ] && git add data/warehouse.duckdb || true
+          [ -d data/silver ] && git add data/silver/ || true
+          [ -d data/raw ] && git add data/raw/ || true
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(top5): daily odds sync at $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
+            git push
+          else
+            echo "Няма нови мачове или промени за записване."
+          fi
