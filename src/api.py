@@ -59,6 +59,70 @@ def _team_code(name: str | None) -> str:
     return parts[0][:3].upper()
 
 
+def _parse_utc_dt(val: Any) -> datetime | None:
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        dt = val
+    else:
+        s = str(val).strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _deduplicate_trend_rows(
+    rows: list[dict[str, Any]],
+    max_gap_seconds: float = 600.0,
+    odds_tol: float = 1e-4,
+) -> list[dict[str, Any]]:
+    """
+    Пропуска последователни записи за един и същ (bookmaker_key, outcome_role),
+    ако са в рамките на 10 минути и имат еднакъв odds_decimal.
+    """
+    ordered = sorted(
+        rows,
+        key=lambda r: (
+            _parse_utc_dt(r.get("extracted_at_utc")) or datetime.min.replace(tzinfo=timezone.utc),
+            str(r.get("bookmaker_key") or ""),
+            str(r.get("outcome_role") or ""),
+        ),
+    )
+
+    last_kept_by_key: dict[tuple[str, str], tuple[datetime | None, float | None]] = {}
+    cleaned: list[dict[str, Any]] = []
+
+    for row in ordered:
+        key = (str(row.get("bookmaker_key") or ""), str(row.get("outcome_role") or ""))
+        cur_dt = _parse_utc_dt(row.get("extracted_at_utc"))
+        cur_odds_raw = row.get("odds_decimal")
+        cur_odds = float(cur_odds_raw) if cur_odds_raw is not None else None
+
+        prev_info = last_kept_by_key.get(key)
+        if prev_info is not None:
+            prev_dt, prev_odds = prev_info
+            within_10m = (
+                cur_dt is not None
+                and prev_dt is not None
+                and 0.0 <= (cur_dt - prev_dt).total_seconds() <= max_gap_seconds
+            )
+            same_odds = (
+                cur_odds is not None
+                and prev_odds is not None
+                and abs(cur_odds - prev_odds) <= odds_tol
+            )
+            if within_10m and same_odds:
+                continue
+
+        cleaned.append(row)
+        last_kept_by_key[key] = (cur_dt, cur_odds)
+
+    return cleaned
+
+
 def _query_matches_sync(
     sport_key: str | None = None,
     event_date: str | None = None,
@@ -177,9 +241,11 @@ def _query_match_movement_sync(event_id: str) -> dict[str, Any]:
             [event_id],
         )
 
+        clean_trend = _deduplicate_trend_rows(history_rows, max_gap_seconds=600.0)
+
         return {
             "event_id": event_id,
-            "trend": history_rows,
+            "trend": clean_trend,
             "movementRows": movement_rows,
         }
     finally:
@@ -451,8 +517,6 @@ async def trigger_prematch_sync(
             sport_key=sport_key,
             dry_run=dry_run,
         )
-
-
 
 
 def _query_calibration_summary_sync(

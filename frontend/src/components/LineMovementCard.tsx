@@ -24,6 +24,12 @@ type ConsensusSummaryItem = {
 }
 
 const PAGE_SIZE = 12
+const TEN_MINUTES_MS = 10 * 60 * 1000
+
+function parseUtcMs(iso: string): number {
+  const ms = Date.parse(iso)
+  return Number.isNaN(ms) ? 0 : ms
+}
 
 function formatSnapshotLabel(iso: string): string {
   const d = new Date(iso)
@@ -36,18 +42,52 @@ function formatSnapshotLabel(iso: string): string {
 }
 
 function buildSnapshotBuckets(trend: TrendPoint[]): ChartBucket[] {
-  const grouped = new Map<
-    string,
-    { home: number[]; draw: number[]; away: number[]; books: Set<string> }
-  >()
+  const validPoints = trend
+    .filter(
+      (pt): pt is TrendPoint & { outcome_role: 'home' | 'draw' | 'away' } =>
+        Boolean(pt.extracted_at_utc) &&
+        pt.odds_decimal > 0 &&
+        (pt.outcome_role === 'home' || pt.outcome_role === 'draw' || pt.outcome_role === 'away'),
+    )
+    .sort((a, b) => parseUtcMs(a.extracted_at_utc) - parseUtcMs(b.extracted_at_utc))
 
-  for (const pt of trend) {
-    if (!pt.extracted_at_utc || pt.odds_decimal <= 0) continue
-    if (pt.outcome_role !== 'home' && pt.outcome_role !== 'draw' && pt.outcome_role !== 'away') {
+  // 1. Дедупликираме суровите точки по (bookmaker_key, outcome_role) в рамките на 10 мин при еднакъв коефициент
+  const lastPointByKey = new Map<string, { tsMs: number; odds: number }>()
+  const dedupedPoints: Array<TrendPoint & { outcome_role: 'home' | 'draw' | 'away' }> = []
+
+  for (const pt of validPoints) {
+    const key = `${pt.bookmaker_key ?? ''}::${pt.outcome_role}`
+    const tsMs = parseUtcMs(pt.extracted_at_utc)
+    const prev = lastPointByKey.get(key)
+
+    if (
+      prev &&
+      tsMs - prev.tsMs >= 0 &&
+      tsMs - prev.tsMs <= TEN_MINUTES_MS &&
+      Math.abs(pt.odds_decimal - prev.odds) <= 1e-4
+    ) {
       continue
     }
+
+    dedupedPoints.push(pt)
+    lastPointByKey.set(key, { tsMs, odds: pt.odds_decimal })
+  }
+
+  // 2. Групираме по timestamp на снапшота
+  const grouped = new Map<
+    string,
+    { tsMs: number; home: number[]; draw: number[]; away: number[]; books: Set<string> }
+  >()
+
+  for (const pt of dedupedPoints) {
     if (!grouped.has(pt.extracted_at_utc)) {
-      grouped.set(pt.extracted_at_utc, { home: [], draw: [], away: [], books: new Set() })
+      grouped.set(pt.extracted_at_utc, {
+        tsMs: parseUtcMs(pt.extracted_at_utc),
+        home: [],
+        draw: [],
+        away: [],
+        books: new Set(),
+      })
     }
     const bucket = grouped.get(pt.extracted_at_utc)!
     bucket[pt.outcome_role].push(pt.odds_decimal)
@@ -58,17 +98,53 @@ function buildSnapshotBuckets(trend: TrendPoint[]): ChartBucket[] {
 
   const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
 
-  return Array.from(grouped.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([ts, vals], index) => ({
-      index,
+  const rawBuckets = Array.from(grouped.entries())
+    .sort(([, a], [, b]) => a.tsMs - b.tsMs)
+    .map(([ts, vals]) => ({
       ts,
+      tsMs: vals.tsMs,
       label: formatSnapshotLabel(ts),
       home: Number(avg(vals.home).toFixed(2)),
       draw: Number(avg(vals.draw).toFixed(2)),
       away: Number(avg(vals.away).toFixed(2)),
       booksCount: vals.books.size,
     }))
+
+  // 3. Премахваме последователни buckets до 10 мин с еднакви коефициенти (1, X, 2)
+  const cleanBuckets: ChartBucket[] = []
+  let prevKeptTsMs: number | null = null
+
+  for (const b of rawBuckets) {
+    const prevKept = cleanBuckets.length > 0 ? cleanBuckets[cleanBuckets.length - 1] : null
+    const within10m =
+      prevKept !== null &&
+      prevKeptTsMs !== null &&
+      b.tsMs - prevKeptTsMs >= 0 &&
+      b.tsMs - prevKeptTsMs <= TEN_MINUTES_MS
+
+    const sameOdds =
+      prevKept !== null &&
+      Math.abs(b.home - prevKept.home) <= 0.005 &&
+      Math.abs(b.draw - prevKept.draw) <= 0.005 &&
+      Math.abs(b.away - prevKept.away) <= 0.005
+
+    if (within10m && sameOdds) {
+      continue
+    }
+
+    cleanBuckets.push({
+      index: cleanBuckets.length,
+      ts: b.ts,
+      label: b.label,
+      home: b.home,
+      draw: b.draw,
+      away: b.away,
+      booksCount: b.booksCount,
+    })
+    prevKeptTsMs = b.tsMs
+  }
+
+  return cleanBuckets
 }
 
 function OddsChart({
