@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: warehouse
+    database: warehouse
+    schema: main
+    tables:
+      - name: match_results
