@@ -202,7 +202,7 @@ def transform_odds_to_silver(run_date: str) -> None:
                 "outcome_role",
                 F.when(F.col("outcome_name") == F.col("home_team"), F.lit("home"))
                 .when(F.col("outcome_name") == F.col("away_team"), F.lit("away"))
-                .when(F.col("outcome_name") == F.col("Draw"), F.lit("draw"))
+                .when(F.col("outcome_name") == F.lit("Draw"), F.lit("draw"))
                 .otherwise(F.lit("other")),
             )
             .withColumn(
