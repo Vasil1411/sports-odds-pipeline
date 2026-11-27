@@ -4,11 +4,13 @@ import { type MovementRow } from '../types/movementRow'
 import { type TrendPoint } from '../types/trendPoint'
 
 type ChartBucket = {
+  index: number
   ts: string
   label: string
   home: number
   draw: number
   away: number
+  booksCount: number
 }
 
 type ConsensusSummaryItem = {
@@ -33,34 +35,53 @@ function formatSnapshotLabel(iso: string): string {
   return `${day}/${month} ${hh}:${mm}`
 }
 
-function OddsChart({ trend, mode }: { trend: TrendPoint[]; mode: 'odds' | 'probability' }) {
-  const buckets = useMemo<ChartBucket[]>(() => {
-    const grouped = new Map<string, { home: number[]; draw: number[]; away: number[] }>()
+function buildSnapshotBuckets(trend: TrendPoint[]): ChartBucket[] {
+  const grouped = new Map<
+    string,
+    { home: number[]; draw: number[]; away: number[]; books: Set<string> }
+  >()
 
-    for (const pt of trend) {
-      if (!pt.extracted_at_utc || pt.odds_decimal <= 0) continue
-      if (pt.outcome_role !== 'home' && pt.outcome_role !== 'draw' && pt.outcome_role !== 'away') {
-        continue
-      }
-      if (!grouped.has(pt.extracted_at_utc)) {
-        grouped.set(pt.extracted_at_utc, { home: [], draw: [], away: [] })
-      }
-      grouped.get(pt.extracted_at_utc)![pt.outcome_role].push(pt.odds_decimal)
+  for (const pt of trend) {
+    if (!pt.extracted_at_utc || pt.odds_decimal <= 0) continue
+    if (pt.outcome_role !== 'home' && pt.outcome_role !== 'draw' && pt.outcome_role !== 'away') {
+      continue
     }
+    if (!grouped.has(pt.extracted_at_utc)) {
+      grouped.set(pt.extracted_at_utc, { home: [], draw: [], away: [], books: new Set() })
+    }
+    const bucket = grouped.get(pt.extracted_at_utc)!
+    bucket[pt.outcome_role].push(pt.odds_decimal)
+    if (pt.bookmaker_key) {
+      bucket.books.add(pt.bookmaker_key)
+    }
+  }
 
-    const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
+  const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
 
-    return Array.from(grouped.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ts, vals]) => ({
-        ts,
-        label: formatSnapshotLabel(ts),
-        home: Number(avg(vals.home).toFixed(2)),
-        draw: Number(avg(vals.draw).toFixed(2)),
-        away: Number(avg(vals.away).toFixed(2)),
-      }))
-  }, [trend])
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([ts, vals], index) => ({
+      index,
+      ts,
+      label: formatSnapshotLabel(ts),
+      home: Number(avg(vals.home).toFixed(2)),
+      draw: Number(avg(vals.draw).toFixed(2)),
+      away: Number(avg(vals.away).toFixed(2)),
+      booksCount: vals.books.size,
+    }))
+}
 
+function OddsChart({
+  buckets,
+  mode,
+  selectedSnapshotIdx,
+  onSelectSnapshot,
+}: {
+  buckets: ChartBucket[]
+  mode: 'odds' | 'probability'
+  selectedSnapshotIdx: number | null
+  onSelectSnapshot: (idx: number | null) => void
+}) {
   if (buckets.length === 0) {
     return (
       <div className="py-16 text-center text-xs text-slate-400">
@@ -129,6 +150,18 @@ function OddsChart({ trend, mode }: { trend: TrendPoint[]; mode: 'odds' | 'proba
           </g>
         ))}
 
+        {selectedSnapshotIdx !== null && buckets[selectedSnapshotIdx] && (
+          <line
+            x1={x(selectedSnapshotIdx)}
+            y1={top}
+            x2={x(selectedSnapshotIdx)}
+            y2={bottom}
+            stroke="#0f172a"
+            strokeWidth="1.5"
+            strokeDasharray="3 3"
+          />
+        )}
+
         <line
           x1={x(lastIdx)}
           y1={top}
@@ -161,16 +194,19 @@ function OddsChart({ trend, mode }: { trend: TrendPoint[]; mode: 'odds' | 'proba
                 />
               )}
               {pts.map((p) => {
+                const isSelected = selectedSnapshotIdx === p.index
                 const isEndpoint = p.index === 0 || p.index === lastIdx
                 return (
                   <circle
                     key={p.index}
                     cx={x(p.index)}
                     cy={y(p.val)}
-                    r={isEndpoint ? 5 : 3}
-                    fill={p.index === 0 ? '#f8fafc' : 'white'}
+                    r={isSelected ? 6.5 : isEndpoint ? 5 : 3.5}
+                    fill={isSelected ? item.color : p.index === 0 ? '#f8fafc' : 'white'}
                     stroke={item.color}
-                    strokeWidth={isEndpoint ? 2.5 : 2}
+                    strokeWidth={isSelected || isEndpoint ? 2.5 : 2}
+                    className="cursor-pointer"
+                    onClick={() => onSelectSnapshot(isSelected ? null : p.index)}
                   />
                 )
               })}
@@ -179,16 +215,19 @@ function OddsChart({ trend, mode }: { trend: TrendPoint[]; mode: 'odds' | 'proba
         })}
 
         {buckets.map((point, index) => {
-          const tag = index === 0 ? ' · First' : index === lastIdx ? ' · Latest' : ''
+          const isSelected = selectedSnapshotIdx === index
+          const tag = ` #${index + 1}`
           return (
             <text
               key={`${point.ts}-${index}`}
               x={x(index)}
               y="231"
               textAnchor={index === 0 ? 'start' : index === lastIdx ? 'end' : 'middle'}
-              fill={index === 0 || index === lastIdx ? '#334155' : '#94a3b8'}
+              fill={isSelected || index === 0 || index === lastIdx ? '#0f172a' : '#94a3b8'}
               fontSize="9.5"
-              fontWeight={index === 0 || index === lastIdx ? '600' : '400'}
+              fontWeight={isSelected || index === 0 || index === lastIdx ? '700' : '400'}
+              className="cursor-pointer"
+              onClick={() => onSelectSnapshot(isSelected ? null : index)}
             >
               {point.label}
               {tag}
@@ -216,11 +255,20 @@ export function LineMovementCard({
   onChartModeChange,
 }: LineMovementCardProps) {
   const [roleFilter, setRoleFilter] = useState<'all' | 'home' | 'draw' | 'away'>('all')
+  const [selectedSnapshotIdx, setSelectedSnapshotIdx] = useState<number | null>(null)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
     setPage(1)
+    setSelectedSnapshotIdx(null)
   }, [match?.event_id, roleFilter, movementRows.length])
+
+  const buckets = useMemo(() => buildSnapshotBuckets(trend), [trend])
+
+  const activeBucket =
+    selectedSnapshotIdx !== null && buckets[selectedSnapshotIdx]
+      ? buckets[selectedSnapshotIdx]
+      : null
 
   const consensusSummary = useMemo<ConsensusSummaryItem[]>(() => {
     const roles: Array<{ role: 'home' | 'draw' | 'away'; label: 'Home' | 'Draw' | 'Away' }> = [
@@ -264,17 +312,58 @@ export function LineMovementCard({
     })
   }, [movementRows])
 
-  const filteredRows = useMemo(() => {
-    if (roleFilter === 'all') return movementRows
-    return movementRows.filter((row) => row.outcome_role === roleFilter)
-  }, [movementRows, roleFilter])
+  const tableRows = useMemo(() => {
+    const baseRows = activeBucket
+      ? trend
+          .filter((pt) => pt.extracted_at_utc === activeBucket.ts && pt.odds_decimal > 0)
+          .map((pt, idx) => {
+            const prevBucket =
+              activeBucket.index > 0 ? buckets[activeBucket.index - 1] : null
+            const prevAvg =
+              prevBucket &&
+              (pt.outcome_role === 'home' ||
+                pt.outcome_role === 'draw' ||
+                pt.outcome_role === 'away')
+                ? prevBucket[pt.outcome_role]
+                : null
+            const diffFromPrev =
+              prevAvg && prevAvg > 0 ? Number((pt.odds_decimal - prevAvg).toFixed(2)) : 0
+            const prob = Number((pt.implied_probability * 100).toFixed(1))
+            const prevProb = prevAvg && prevAvg > 0 ? 100 / prevAvg : prob
+            const probDiffPp = Number((prob - prevProb).toFixed(1))
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
+            return {
+              id: `${pt.bookmaker_key}-${pt.outcome_role}-${idx}`,
+              outcome_name: pt.outcome_name,
+              bookmaker_key: pt.bookmaker_key,
+              outcome_role: pt.outcome_role,
+              leftVal: prevAvg && prevAvg > 0 ? prevAvg : pt.odds_decimal,
+              rightVal: pt.odds_decimal,
+              oddsDiff: diffFromPrev,
+              probDiffPp,
+            }
+          })
+      : movementRows.map((row, idx) => ({
+          id: `${row.bookmaker_key}-${row.outcome_role}-${idx}`,
+          outcome_name: row.outcome_name,
+          bookmaker_key: row.bookmaker_key,
+          outcome_role: row.outcome_role,
+          leftVal: row.first_odds,
+          rightVal: row.latest_odds,
+          oddsDiff: row.odds_diff,
+          probDiffPp: row.prob_diff_pp,
+        }))
+
+    if (roleFilter === 'all') return baseRows
+    return baseRows.filter((row) => row.outcome_role === roleFilter)
+  }, [activeBucket, buckets, movementRows, roleFilter, trend])
+
+  const totalPages = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
   const pageRows = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE
-    return filteredRows.slice(start, start + PAGE_SIZE)
-  }, [filteredRows, safePage])
+    return tableRows.slice(start, start + PAGE_SIZE)
+  }, [tableRows, safePage])
 
   if (!match) {
     return (
@@ -284,8 +373,8 @@ export function LineMovementCard({
     )
   }
 
-  const startIdx = filteredRows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
-  const endIdx = Math.min(filteredRows.length, safePage * PAGE_SIZE)
+  const startIdx = tableRows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
+  const endIdx = Math.min(tableRows.length, safePage * PAGE_SIZE)
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
@@ -320,13 +409,13 @@ export function LineMovementCard({
         </div>
       </div>
 
-      <div className="px-4 pb-1 pt-4 sm:px-5">
+      <div className="px-4 pb-2 pt-4 sm:px-5">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-2 pl-1">
           <div className="flex flex-wrap gap-4">
             {[
-              ['Home', 'bg-emerald-600'],
-              ['Draw', 'bg-slate-500'],
-              ['Away', 'bg-blue-600'],
+              ['Home (1)', 'bg-emerald-600'],
+              ['Draw (X)', 'bg-slate-500'],
+              ['Away (2)', 'bg-blue-600'],
             ].map(([label, color]) => (
               <span
                 key={label}
@@ -338,13 +427,81 @@ export function LineMovementCard({
             ))}
           </div>
           <span className="text-[10px] text-slate-400">
-            First → Latest snapshot comparison
+            {buckets.length} snapshots · Click a point or pill to inspect
           </span>
         </div>
-        <OddsChart trend={trend} mode={chartMode} />
+        <OddsChart
+          buckets={buckets}
+          mode={chartMode}
+          selectedSnapshotIdx={selectedSnapshotIdx}
+          onSelectSnapshot={(idx) => {
+            setSelectedSnapshotIdx(idx)
+            setPage(1)
+          }}
+        />
       </div>
 
-      {/* Обобщение на средните First -> Latest стойности по изход */}
+      {buckets.length > 0 && (
+        <div className="border-t border-slate-100 bg-slate-50/70 px-5 py-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.07em] text-slate-500">
+              Snapshots ({buckets.length})
+            </span>
+            {activeBucket && (
+              <button
+                type="button"
+                onClick={() => setSelectedSnapshotIdx(null)}
+                className="text-[10px] font-semibold text-emerald-700 hover:underline"
+              >
+                Reset to First → Latest
+              </button>
+            )}
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {buckets.map((b, idx) => {
+              const isSelected = selectedSnapshotIdx === idx
+              const tagLabel =
+                idx === 0
+                  ? 'Initial'
+                  : idx === buckets.length - 1
+                    ? 'Latest'
+                    : `Pull #${idx + 1}`
+
+              return (
+                <button
+                  key={`${b.ts}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSnapshotIdx(isSelected ? null : idx)
+                    setPage(1)
+                  }}
+                  className={`min-w-[154px] shrink-0 rounded-lg border px-3 py-2 text-left text-[11px] transition ${
+                    isSelected
+                      ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 text-[10px]">
+                    <span className="font-bold">
+                      #{idx + 1} · {tagLabel}
+                    </span>
+                    <span className={isSelected ? 'text-slate-300' : 'text-slate-400'}>
+                      {b.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-1.5 font-mono text-[10px] tabular-nums">
+                    <span>1: {b.home.toFixed(2)}</span>
+                    <span>X: {b.draw.toFixed(2)}</span>
+                    <span>2: {b.away.toFixed(2)}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-2.5 border-t border-slate-100 bg-slate-50/50 px-5 py-3 sm:grid-cols-3">
         {consensusSummary.map((item) => {
           const diff = item.oddsDiff ?? 0
@@ -418,15 +575,16 @@ export function LineMovementCard({
         </div>
 
         <span className="text-[10px] tabular-nums text-slate-400">
-          {filteredRows.length === 0 ? '0 rows' : `${startIdx}–${endIdx} of ${filteredRows.length}`}
+          {activeBucket ? `Snapshot #${activeBucket.index + 1} (${activeBucket.label}) · ` : ''}
+          {tableRows.length === 0 ? '0 rows' : `${startIdx}–${endIdx} of ${tableRows.length}`}
         </span>
       </div>
 
       <div className="border-t border-slate-100">
         <div className="grid grid-cols-[1.6fr_repeat(4,1fr)] bg-slate-50 px-5 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-slate-400">
           <span>Outcome · Bookmaker</span>
-          <span>First</span>
-          <span>Latest</span>
+          <span>{activeBucket ? 'Prev avg' : 'First'}</span>
+          <span>{activeBucket ? `#${activeBucket.index + 1}` : 'Latest'}</span>
           <span>Odds Δ</span>
           <span>Prob. Δ</span>
         </div>
@@ -436,37 +594,37 @@ export function LineMovementCard({
             No movement rows for this filter.
           </div>
         ) : (
-          pageRows.map((row, idx) => {
+          pageRows.map((row) => {
             const toneClass =
-              Math.abs(row.odds_diff) < 0.005
+              Math.abs(row.oddsDiff) < 0.005
                 ? 'text-slate-400'
-                : row.odds_diff < 0
+                : row.oddsDiff < 0
                   ? 'text-emerald-600'
                   : 'text-rose-600'
-            const signOdds = row.odds_diff > 0 ? '+' : ''
-            const signProb = row.prob_diff_pp > 0 ? '+' : ''
+            const signOdds = row.oddsDiff > 0 ? '+' : ''
+            const signProb = row.probDiffPp > 0 ? '+' : ''
 
             return (
               <div
-                key={`${row.bookmaker_key}-${row.outcome_role}-${idx}`}
+                key={row.id}
                 className="grid grid-cols-[1.6fr_repeat(4,1fr)] border-t border-slate-100 px-5 py-2.5 text-[11px]"
               >
                 <span className="truncate pr-2 font-bold text-slate-700">
                   {row.outcome_name} · {row.bookmaker_key}
                 </span>
                 <span className="font-mono tabular-nums text-slate-500">
-                  {row.first_odds.toFixed(2)}
+                  {row.leftVal.toFixed(2)}
                 </span>
                 <span className="font-mono font-bold tabular-nums text-slate-800">
-                  {row.latest_odds.toFixed(2)}
+                  {row.rightVal.toFixed(2)}
                 </span>
                 <span className={`font-mono font-bold tabular-nums ${toneClass}`}>
                   {signOdds}
-                  {row.odds_diff.toFixed(2)}
+                  {row.oddsDiff.toFixed(2)}
                 </span>
                 <span className={`font-mono font-bold tabular-nums ${toneClass}`}>
                   {signProb}
-                  {row.prob_diff_pp.toFixed(1)}%
+                  {row.probDiffPp.toFixed(1)}%
                 </span>
               </div>
             )

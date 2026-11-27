@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { type Match } from '../types/match'
 import { type OutcomeRole } from '../types/outcome'
 
@@ -79,9 +79,18 @@ type MatchesTableProps = {
   selectedId: string | null
   onSelectMatch: (id: string) => void
   loading: boolean
+  pageSize?: number
 }
 
-export function MatchesTable({ matches, selectedId, onSelectMatch, loading }: MatchesTableProps) {
+export function MatchesTable({
+  matches,
+  selectedId,
+  onSelectMatch,
+  loading,
+  pageSize = 10,
+}: MatchesTableProps) {
+  const [page, setPage] = useState(1)
+
   const groupedMatches = useMemo<GroupedMatch[]>(() => {
     const map = new Map<string, GroupedMatch>()
 
@@ -111,6 +120,26 @@ export function MatchesTable({ matches, selectedId, onSelectMatch, loading }: Ma
     return Array.from(map.values())
   }, [matches])
 
+  const totalPages = Math.max(1, Math.ceil(groupedMatches.length / pageSize))
+
+  useEffect(() => {
+    setPage(1)
+  }, [matches, pageSize])
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
+
+  const paginatedMatches = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return groupedMatches.slice(start, start + pageSize)
+  }, [groupedMatches, page, pageSize])
+
+  const startIdx = groupedMatches.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const endIdx = Math.min(page * pageSize, groupedMatches.length)
+
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -133,59 +162,104 @@ export function MatchesTable({ matches, selectedId, onSelectMatch, loading }: Ma
           No fixtures found for the selected date and tournament.
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[1020px]">
-            <div className="grid grid-cols-[2.1fr_repeat(3,1.25fr)_90px] gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.09em] text-slate-400">
-              <span>Fixture / kickoff</span>
-              <span>Home</span>
-              <span>Draw</span>
-              <span>Away</span>
-              <span className="text-right">Books</span>
+        <>
+          <div className="overflow-x-auto">
+            <div className="min-w-[1020px]">
+              <div className="grid grid-cols-[2.1fr_repeat(3,1.25fr)_90px] gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.09em] text-slate-400">
+                <span>Fixture / kickoff</span>
+                <span>Home</span>
+                <span>Draw</span>
+                <span>Away</span>
+                <span className="text-right">Books</span>
+              </div>
+
+              {paginatedMatches.map((match) => (
+                <button
+                  key={match.event_id}
+                  onClick={() => onSelectMatch(match.event_id)}
+                  className={`group grid w-full grid-cols-[2.1fr_repeat(3,1.25fr)_90px] items-center gap-3 border-b border-slate-100 px-5 py-3 text-left transition last:border-0 hover:bg-slate-50 ${
+                    selectedId === match.event_id ? 'bg-emerald-50/40 shadow-[inset_3px_0_0_#10b981]' : ''
+                  }`}
+                >
+                  <div className="flex min-w-0 items-center gap-3.5">
+                    <div className="w-12 shrink-0 text-center">
+                      <div className="font-mono text-sm font-bold tabular-nums text-slate-800">
+                        {formatUtcTime(match.commence_time_utc)}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-slate-400">
+                        {formatUtcShortDate(match.commence_time_utc || match.event_date)} UTC
+                      </div>
+                    </div>
+                    <div className="h-8 w-px bg-slate-200" />
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-bold text-slate-900">
+                        {match.home_team} <span className="mx-1 font-normal text-slate-300">vs</span>{' '}
+                        {match.away_team}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="truncate text-[10px] text-slate-400">{match.sport_key}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <OutcomeCell label="Home" row={match.byRole.home} />
+                  <OutcomeCell label="Draw" row={match.byRole.draw} />
+                  <OutcomeCell label="Away" row={match.byRole.away} />
+
+                  <div className="text-right">
+                    <div className="font-mono text-sm font-bold text-slate-700">
+                      {match.bookmaker_count}
+                    </div>
+                    <div className="text-[10px] text-slate-400">sources</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3 text-xs text-slate-500">
+            <div>
+              Showing <span className="font-semibold text-slate-700">{startIdx}</span>–
+              <span className="font-semibold text-slate-700">{endIdx}</span> of{' '}
+              <span className="font-semibold text-slate-700">{groupedMatches.length}</span> fixtures
             </div>
 
-            {groupedMatches.map((match) => (
+            <div className="flex items-center gap-1.5">
               <button
-                key={match.event_id}
-                onClick={() => onSelectMatch(match.event_id)}
-                className={`group grid w-full grid-cols-[2.1fr_repeat(3,1.25fr)_90px] items-center gap-3 border-b border-slate-100 px-5 py-3 text-left transition last:border-0 hover:bg-slate-50 ${
-                  selectedId === match.event_id ? 'bg-emerald-50/40 shadow-[inset_3px_0_0_#10b981]' : ''
-                }`}
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <div className="flex min-w-0 items-center gap-3.5">
-                  <div className="w-12 shrink-0 text-center">
-                    <div className="font-mono text-sm font-bold tabular-nums text-slate-800">
-                      {formatUtcTime(match.commence_time_utc)}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-400">
-                      {formatUtcShortDate(match.commence_time_utc || match.event_date)} UTC
-                    </div>
-                  </div>
-                  <div className="h-8 w-px bg-slate-200" />
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-bold text-slate-900">
-                      {match.home_team} <span className="mx-1 font-normal text-slate-300">vs</span>{' '}
-                      {match.away_team}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="truncate text-[10px] text-slate-400">{match.sport_key}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <OutcomeCell label="Home" row={match.byRole.home} />
-                <OutcomeCell label="Draw" row={match.byRole.draw} />
-                <OutcomeCell label="Away" row={match.byRole.away} />
-
-                <div className="text-right">
-                  <div className="font-mono text-sm font-bold text-slate-700">
-                    {match.bookmaker_count}
-                  </div>
-                  <div className="text-[10px] text-slate-400">sources</div>
-                </div>
+                Prev
               </button>
-            ))}
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => setPage(pageNum)}
+                  className={`rounded-md px-2.5 py-1 font-mono text-[11px] font-semibold transition ${
+                    pageNum === page
+                      ? 'bg-slate-900 text-white'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
   )

@@ -3,6 +3,7 @@ import { type MovementRow } from '../types/movementRow'
 import { type OutcomeRole } from '../types/outcome'
 import { type PostMatchSummary } from '../types/postMatchSummary'
 import { type TrendPoint } from '../types/trendPoint'
+import { type CalibrationSummaryRow } from '../types/calibrationSummary'
 
 const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '')
 
@@ -11,6 +12,7 @@ export type DashboardPayload = {
   tournaments: string[]
   lastSyncUtc: string | null
   postMatch: PostMatchSummary | null
+  postMatchList: PostMatchSummary[]
 }
 
 export type MatchMovementPayload = {
@@ -56,6 +58,14 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   }
 
   return (await res.json()) as T
+}
+
+function parsePostMatchStatus(value: unknown): PostMatchSummary['status'] {
+  const s = String(value ?? 'finished').toLowerCase()
+  if (s === 'finished' || s === 'live' || s === 'scheduled' || s === 'postponed') {
+    return s as PostMatchSummary['status']
+  }
+  return 'finished'
 }
 
 function normalizeMatch(row: Record<string, unknown>): Match {
@@ -119,24 +129,54 @@ function normalizeMovementRow(row: Record<string, unknown>): MovementRow {
 
 function normalizePostMatch(raw: unknown): PostMatchSummary | null {
   if (!raw || typeof raw !== 'object') return null
-  const data = raw as Partial<PostMatchSummary>
-  if (!data.home || !data.away) return null
+  const data = raw as Record<string, unknown>
+  const home = String(data.home ?? data.home_team ?? '')
+  const away = String(data.away ?? data.away_team ?? '')
+  if (!home || !away) return null
+
+  const homeScore = data.home_score
+  const awayScore = data.away_score
+  const computedScore =
+    typeof data.score === 'string' && data.score
+      ? data.score
+      : homeScore !== undefined && awayScore !== undefined
+        ? `${homeScore} - ${awayScore}`
+        : null
 
   return {
-    eventId: data.eventId,
-    status: data.status ?? 'finished',
-    homeCode: data.homeCode ?? data.home.slice(0, 3).toUpperCase(),
-    awayCode: data.awayCode ?? data.away.slice(0, 3).toUpperCase(),
-    home: data.home,
-    away: data.away,
-    score: data.score ?? null,
-    date: data.date ?? '',
-    commenceTimeUtc: data.commenceTimeUtc,
-    tournament: data.tournament ?? '',
-    headline: data.headline ?? '',
-    description: data.description ?? '',
-    outcomes: Array.isArray(data.outcomes) ? data.outcomes : [],
+    eventId: String(data.eventId ?? data.event_id ?? ''),
+    status: parsePostMatchStatus(data.status),
+    homeCode: String(data.homeCode ?? home.slice(0, 3).toUpperCase()),
+    awayCode: String(data.awayCode ?? away.slice(0, 3).toUpperCase()),
+    home,
+    away,
+    score: computedScore,
+    date: String(data.date ?? String(data.commence_time_utc ?? '').slice(0, 10)),
+    commenceTimeUtc: data.commenceTimeUtc ? String(data.commenceTimeUtc) : undefined,
+    tournament: String(data.tournament ?? data.sport_key ?? ''),
+    headline: String(data.headline ?? 'Full-time result'),
+    description: String(data.description ?? `${home} vs ${away}`),
+    outcomes: Array.isArray(data.outcomes) ? (data.outcomes as PostMatchSummary['outcomes']) : [],
   }
+}
+
+export async function fetchCompletedResults(
+  options?: { sportKey?: string; date?: string; signal?: AbortSignal },
+): Promise<PostMatchSummary[]> {
+  const sportKey = cleanSportKey(options?.sportKey)
+  const params = new URLSearchParams()
+  if (sportKey) params.set('sport_key', sportKey)
+  if (options?.date) params.set('event_date', options.date)
+
+  const query = params.toString()
+  const raw = await requestJson<{ results?: Record<string, unknown>[] }>(
+    `${API_BASE}/api/results${query ? `?${query}` : ''}`,
+    { signal: options?.signal },
+  )
+
+  return Array.isArray(raw.results)
+    ? raw.results.map(normalizePostMatch).filter((item): item is PostMatchSummary => item !== null)
+    : []
 }
 
 export async function fetchDashboardData(
@@ -164,11 +204,24 @@ export async function fetchDashboardData(
     ? raw.tournaments.map((t) => String(t)).filter(Boolean)
     : Array.from(new Set(matches.map((m) => m.sport_key).filter(Boolean))).sort()
 
+  const singlePostMatch = normalizePostMatch(raw.postMatch)
+  let postMatchList: PostMatchSummary[] = singlePostMatch ? [singlePostMatch] : []
+
+  try {
+    const results = await fetchCompletedResults({ sportKey, signal })
+    if (results.length > 0) {
+      postMatchList = results
+    }
+  } catch {
+    // Ако /api/results не върне списък, оставаме с единичния postMatch от /api/odds
+  }
+
   return {
     matches,
     tournaments,
     lastSyncUtc: raw.lastSyncUtc ? String(raw.lastSyncUtc) : null,
-    postMatch: normalizePostMatch(raw.postMatch),
+    postMatch: postMatchList[0] ?? singlePostMatch,
+    postMatchList,
   }
 }
 
@@ -232,4 +285,20 @@ export async function syncAndRefreshDashboard(
     sportKey: options?.sportKey,
   })
   return fetchDashboardData(date, { sportKey: options?.sportKey })
+}
+
+export async function fetchCalibrationSummary(
+  options: { sportKey?: string; signal?: AbortSignal } = {},
+): Promise<CalibrationSummaryRow[]> {
+  const sportKey = cleanSportKey(options.sportKey)
+  const params = new URLSearchParams()
+  if (sportKey) params.set('sport_key', sportKey)
+  const qs = params.toString()
+
+  const raw = await requestJson<{ summary?: CalibrationSummaryRow[] }>(
+    `${API_BASE}/api/calibration/summary${qs ? `?${qs}` : ''}`,
+    { signal: options.signal },
+  )
+
+  return Array.isArray(raw.summary) ? raw.summary : []
 }

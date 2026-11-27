@@ -16,8 +16,8 @@ export function Toolbar({
   onTournamentChange,
   date,
   onDateChange,
-  syncing,
-  onSync,
+  // syncing,
+  // onSync,
 }: ToolbarProps) {
   return (
     <section className="mb-7 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
@@ -52,7 +52,7 @@ export function Toolbar({
           />
         </label>
 
-        <div className="flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700">
+        {/* <div className="flex h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700">
           <Icon name="clock" className="h-3.5 w-3.5" />
           <span>UTC · T−1h snapshot</span>
         </div>
@@ -64,7 +64,7 @@ export function Toolbar({
         >
           <Icon name="refresh" className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Syncing…' : 'Sync now'}
-        </button>
+        </button> */}
       </div>
     </section>
   )
