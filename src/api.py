@@ -451,3 +451,60 @@ async def trigger_prematch_sync(
             sport_key=sport_key,
             dry_run=dry_run,
         )
+
+
+
+
+def _query_calibration_summary_sync(
+    sport_key: str | None = None,
+) -> list[dict[str, Any]]:
+    con = _get_con()
+    try:
+        tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+        if "mart_h2h_league_role_summary" not in tables:
+            return []
+
+        where: list[str] = []
+        params: list[Any] = []
+        if sport_key:
+            where.append("sport_key = ?")
+            params.append(sport_key)
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        sql = f"""
+            SELECT
+                sport_key,
+                outcome_role,
+                CAST(first_match_date AS VARCHAR) AS first_match_date,
+                CAST(last_match_date AS VARCHAR) AS last_match_date,
+                active_match_days,
+                match_dates_list,
+                evaluated_rows,
+                unique_matches,
+                favorite_picks,
+                favorite_wins,
+                favorite_hit_rate,
+                avg_winning_odds,
+                avg_raw_implied_prob,
+                avg_norm_implied_prob,
+                actual_win_rate,
+                actual_minus_norm_prob,
+                avg_total_goals,
+                avg_goal_diff,
+                blowout_2plus_rate,
+                avg_event_odds_gap
+            FROM mart_h2h_league_role_summary
+            {where_sql}
+            ORDER BY sport_key, outcome_role
+        """
+        return _rows_to_dicts(con, sql, params)
+    finally:
+        con.close()
+
+
+@app.get("/api/calibration/summary")
+async def get_calibration_summary(
+    sport_key: str | None = Query(default=None),
+) -> dict[str, Any]:
+    rows = await asyncio.to_thread(_query_calibration_summary_sync, sport_key)
+    return {"count": len(rows), "summary": rows}
